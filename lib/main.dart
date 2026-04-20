@@ -48,29 +48,147 @@ class FrameConfig {
   });
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  Future<void> pickMultiple(BuildContext context) async {
-    final picker = ImagePicker();
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final ImagePicker picker = ImagePicker();
+
+  List<XFile> tempFiles = []; // 🔥 simpan di state
+
+  /// 📷 ambil dari kamera (bisa berkali-kali)
+  Future<void> pickFromCamera() async {
+    final XFile? file = await picker.pickImage(source: ImageSource.camera);
+
+    if (file != null) {
+      setState(() {
+        tempFiles.add(file);
+      });
+    }
+  }
+
+  /// 🖼️ ambil dari gallery
+  Future<void> pickMultiple() async {
     final List<XFile> files = await picker.pickMultiImage();
 
     if (files.isEmpty) return;
 
+    setState(() {
+      tempFiles.addAll(files);
+    });
+  }
+
+  /// 🚀 lanjut ke edit
+  void goToEditor() {
+    if (tempFiles.isEmpty) return;
+
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => MultiEditPage(files: files)),
+      MaterialPageRoute(builder: (_) => MultiEditPage(files: tempFiles)),
+    );
+  }
+
+  /// 📋 menu pilihan
+  void showImageSourceMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Ambil dari Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickMultiple();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Ambil dari Kamera"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickFromCamera();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => pickMultiple(context),
-          child: const Text("Pilih  Foto"),
-        ),
+      appBar: AppBar(
+        title: const Text("Ambil Foto"),
+        actions: [
+          if (tempFiles.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: goToEditor, // 🔥 lanjut ke edit
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          /// 🖼️ preview hasil ambil
+          Expanded(
+            child: GridView.builder(
+              itemCount: tempFiles.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              itemBuilder: (context, index) {
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.file(
+                        File(tempFiles[index].path),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+
+                    /// ❌ tombol hapus
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            tempFiles.removeAt(index);
+                          });
+                        },
+                        child: const Icon(Icons.close, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          /// ➕ tombol tambah foto
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton.icon(
+              onPressed: showImageSourceMenu,
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text("Tambah Foto"),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -96,35 +214,48 @@ class _MultiEditPageState extends State<MultiEditPage>
   int selectedFrameIndex = 0;
   List<String> frameNames = ["Frame 1", "Frame 2", "Frame 3", "No Frame"];
   int totalSlots = 2;
-
-  double getScale(FrameConfig frame) {
-    if (totalSlots == 6) return 1.0;
-    if (totalSlots == 4) return 1.30;
-    if (totalSlots == 2) return 0.95;
-    return frame.scale;
-  }
-
   List<FrameConfig> frames = [
     FrameConfig(
       asset: "assets/frame1.png",
-      padding: EdgeInsets.fromLTRB(23, 10, 23, 40),
-      borderRadius: 3,
+      // padding: EdgeInsets.fromLTRB(23, 10, 23, 40),
+      padding: EdgeInsets.only(left: 15, right: 15, top: 7, bottom: 31),
+      borderRadius: 2,
       scale: 1,
     ),
 
     FrameConfig(
       asset: "assets/frame2.png",
-      padding: EdgeInsets.fromLTRB(12, 15, 12, 15),
-      borderRadius: 1,
+      // padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+      padding: EdgeInsets.only(left: 5, right: 5, top: 5, bottom: 5),
+      borderRadius: 2,
+      scale: 0,
     ),
     FrameConfig(
       asset: "assets/frame3.png",
-      padding: EdgeInsets.fromLTRB(35, 25, 35, 25),
-      borderRadius: 4,
+      // padding: EdgeInsets.fromLTRB(23, 23, 20, 23),
+      padding: EdgeInsets.only(left: 20, right: 23, top: 21, bottom: 19),
+      borderRadius: 2,
+      scale: 1,
     ),
 
-    FrameConfig(asset: "", padding: EdgeInsets.zero, scale: 0),
+    FrameConfig(
+      asset: "",
+      padding: EdgeInsets.only(left: 23, right: 26, top: 21, bottom: 19),
+      borderRadius: 2,
+      scale: 1,
+    ),
   ];
+
+
+  double getScale(FrameConfig frame) {
+    if (totalSlots == 6) return 1.29;
+    if (totalSlots == 4) return 1.39;
+    if (totalSlots == 2) return 1.60;
+
+    return frame.scale;
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -384,7 +515,7 @@ class _MultiEditPageState extends State<MultiEditPage>
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
-                  "PLAY AGAIN",
+                  "EDIT AGAIN",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1,
@@ -416,7 +547,8 @@ class _MultiEditPageState extends State<MultiEditPage>
         ),
 
         // Tab controls only
-        SizedBox(
+        Container(
+          padding: const EdgeInsets.only(bottom: 8),
           height: 60,
           child: TabBarView(
             controller: _tabController,
@@ -432,59 +564,118 @@ class _MultiEditPageState extends State<MultiEditPage>
     );
   }
 
-  Widget _buildGridTab() {
-    log(totalSlots.toString());
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildGridButton("2", 2, totalSlots == 2),
-            const SizedBox(width: 8),
-            _buildGridButton("2x4", 4, totalSlots == 4),
-            const SizedBox(width: 8),
-            _buildGridButton("2x6", 6, totalSlots == 6),
-          ],
+ Widget _buildGridTab() {
+  return Container(
+    height: 300,
+    width: double.infinity,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildGridImage("assets/grid_2.jpg", 2),
+        const SizedBox(width: 10),
+        _buildGridImage("assets/grid_4.png", 4),
+        const SizedBox(width: 10),
+        _buildGridImage("assets/grid_6.png", 6),
+      ],
+    ),
+  );
+}
+  
+
+Widget _buildGridImage(String asset, int value) {
+  final isSelected = totalSlots == value;
+
+  return GestureDetector(
+    onTap: () => changeGrid(value),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? Colors.blueAccent : Colors.transparent,
+          width: 2,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: Colors.blueAccent.withOpacity(0.4),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ]
+            : [],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          asset,
+          width: 50,
+          height:70,
+          fit: BoxFit.cover,
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildFrameItem(int index) {
+    final frame = frames[index];
+    final isSelected = selectedFrameIndex == index;
+
+    return GestureDetector(
+      onTap: () => changeFrame(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blueAccent : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.blueAccent.withOpacity(0.4),
+                    blurRadius: 10,
+                  ),
+                ]
+              : [],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: frame.asset.isEmpty
+              ? Container(
+                  width: 70,
+                  height: 70,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.block, color: Colors.black54),
+                )
+              : Stack(
+                  children: [
+                    Container(width: 70, height: 70, color: Colors.white),
+
+                    /// 🔥 preview frame
+                    Positioned.fill(
+                      child: Image.asset(frame.asset, fit: BoxFit.fill),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
   }
-
-  Widget _buildFrameTab() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (int i = 0; i < frameNames.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ElevatedButton(
-                  onPressed: () => changeFrame(i),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: selectedFrameIndex == i
-                        ? Colors.blueAccent
-                        : Colors.grey[400],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    frameNames[i],
-                    style: TextStyle(
-                      color: selectedFrameIndex == i
-                          ? Colors.white
-                          : Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+ Widget _buildFrameTab() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(frames.length, (index) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _buildFrameItem(index),
+          );
+        }),
       ),
     );
   }
@@ -492,7 +683,7 @@ class _MultiEditPageState extends State<MultiEditPage>
   Widget _buildPhotoboxGrid() {
     if (totalSlots == 2) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 43, vertical: 150),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(5),
@@ -510,9 +701,9 @@ class _MultiEditPageState extends State<MultiEditPage>
           itemCount: 2,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 0,
-            mainAxisSpacing: 0,
-            childAspectRatio: 1, 
+            crossAxisSpacing: 75,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1,
           ),
           itemBuilder: (context, index) {
             return DragTarget<int>(
@@ -534,7 +725,7 @@ class _MultiEditPageState extends State<MultiEditPage>
     }
     if (totalSlots == 6) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal:50, vertical: 30),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(5),
@@ -548,14 +739,12 @@ class _MultiEditPageState extends State<MultiEditPage>
         ),
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
-
           shrinkWrap: true,
           itemCount: totalSlots,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 1,
-            crossAxisSpacing: 20,
-            mainAxisSpacing: 10,
+            crossAxisSpacing: 75,
+            mainAxisSpacing: 40,
           ),
           itemBuilder: (context, index) {
             return DragTarget<int>(
@@ -577,10 +766,10 @@ class _MultiEditPageState extends State<MultiEditPage>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+      padding: const EdgeInsets.symmetric(horizontal: 39, vertical: 70),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(2),
         boxShadow: [
           BoxShadow(
             color: Colors.cyanAccent.withOpacity(0.4),
@@ -590,11 +779,13 @@ class _MultiEditPageState extends State<MultiEditPage>
         ],
       ),
       child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
         itemCount: totalSlots,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          crossAxisSpacing: 40,
-          mainAxisSpacing: 40,
+          crossAxisSpacing: 55,
+          mainAxisSpacing: 60,
           childAspectRatio: 1,
         ),
         itemBuilder: (context, index) {
@@ -691,7 +882,7 @@ class _MultiEditPageState extends State<MultiEditPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Photobox Editor"),
+        title: const Text("Photoboth Editor"),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
